@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Integer Factorization Suite</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">n = p·q</div>
+        <div>
+          <h1 data-i18n="app_title"></h1>
+          <p class="sub" data-i18n="app_sub"></p>
+        </div>
+      </div>
+      <div class="toolbar">
+        <div class="seg" role="group" aria-label="Language">
+          <button id="langEn" class="seg-btn active" data-lang="en">EN</button>
+          <button id="langUz" class="seg-btn" data-lang="uz">UZ</button>
+        </div>
+        <button id="themeBtn" class="icon-btn" data-i18n-title="theme_toggle">
+          🌙
+        </button>
+      </div>
+    </header>
+
+    <main class="container">
+      <nav class="tabs" id="tabs">
+        <button
+          class="tab active"
+          data-algo="fermat"
+          data-i18n="tab_fermat"
+        ></button>
+        <button class="tab" data-algo="dixon" data-i18n="tab_dixon"></button>
+        <button
+          class="tab"
+          data-algo="pollard"
+          data-i18n="tab_pollard"
+        ></button>
+        <button class="tab" data-algo="ecm" data-i18n="tab_ecm"></button>
+      </nav>
+
+      <section class="card" id="inputCard">
+        <h2 data-i18n="sec_input"></h2>
+        <p id="algoDesc" class="desc"></p>
+
+        <div class="field" id="modeBox" hidden>
+          <label for="modeSel" data-i18n="lbl_mode"></label>
+          <select id="modeSel">
+            <option value="rho" data-i18n="mode_rho"></option>
+            <option value="pm1" data-i18n="mode_pm1"></option>
+          </select>
+        </div>
+
+        <div class="fields">
+          <div class="field wide">
+            <label for="nInput" data-i18n="lbl_n"></label>
+            <input
+              id="nInput"
+              type="text"
+              inputmode="numeric"
+              autocomplete="off"
+              data-i18n-ph="ph_n"
+            />
+            <small id="nHint" class="hint"></small>
+          </div>
+          <div id="extraFields" class="extra"></div>
+        </div>
+
+        <div class="actions">
+          <button id="suggestBtn" class="btn" data-i18n="btn_suggest"></button>
+          <button id="runBtn" class="btn primary" data-i18n="btn_run"></button>
+          <button
+            id="clearBtn"
+            class="btn ghost"
+            data-i18n="btn_clear"
+          ></button>
+        </div>
+        <div id="msg" class="msg" role="alert"></div>
+      </section>
+
+      <section class="card" id="vizCard">
+        <h2 data-i18n="sec_viz"></h2>
+
+        <div class="controls">
+          <button id="prevBtn" class="btn" data-i18n="ctl_prev"></button>
+          <button
+            id="nextBtn"
+            class="btn primary"
+            data-i18n="ctl_next"
+          ></button>
+          <button id="playBtn" class="btn"></button>
+          <button id="allBtn" class="btn" data-i18n="ctl_all"></button>
+          <button
+            id="restartBtn"
+            class="btn ghost"
+            data-i18n="ctl_restart"
+          ></button>
+          <label class="speed">
+            <span data-i18n="lbl_speed"></span>
+            <select id="speed">
+              <option value="1200" data-i18n="speed_slow"></option>
+              <option value="600" data-i18n="speed_normal" selected></option>
+              <option value="150" data-i18n="speed_fast"></option>
+              <option value="25" data-i18n="speed_max"></option>
+            </select>
+          </label>
+        </div>
+
+        <div class="progress"><div id="bar"></div></div>
+        <div id="progressText" class="progress-text"></div>
+
+        <div id="steps" class="steps"></div>
+        <div id="result" class="result" hidden></div>
+      </section>
+    </main>
+
+    <footer class="footer" data-i18n="footer"></footer>
+
+    <script src="js/utils.js"></script>
+    <script src="js/i18n.js"></script>
+    <script src="js/fermat.js"></script>
+    <script src="js/dixon.js"></script>
+    <script src="js/pollard.js"></script>
+    <script src="js/lenstra.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>
