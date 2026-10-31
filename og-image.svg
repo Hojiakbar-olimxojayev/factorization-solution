@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+    <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#4f46e5" />
+            <stop offset="1" stop-color="#0ea5e9" />
+        </linearGradient>
+    </defs>
+    <rect width="1200" height="630" fill="url(#g)" />
+    <rect x="60" y="60" width="1080" height="510" rx="32" fill="#0d1120" opacity="0.88" />
+    <text x="110" y="190" font-family="Consolas, Menlo, monospace" font-size="64" font-weight="700"
+        fill="#8e8fff">n = p · q</text>
+    <text x="110" y="300" font-family="Segoe UI, Arial, sans-serif" font-size="68" font-weight="700"
+        fill="#ffffff">Integer Factorization</text>
+    <text x="110" y="380" font-family="Segoe UI, Arial, sans-serif" font-size="68" font-weight="700"
+        fill="#ffffff">Suite</text>
+    <text x="110" y="460" font-family="Segoe UI, Arial, sans-serif" font-size="34" fill="#c7d2fe">Fermat
+        · Dixon · Pollard ρ / p−1 · Lenstra ECM</text>
+    <text x="110" y="515" font-family="Segoe UI, Arial, sans-serif" font-size="28" fill="#9aa4c0">Step-by-step
+        visualisation · EN / UZ · Dark mode</text>
+</svg>
