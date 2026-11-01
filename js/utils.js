@@ -1,4 +1,4 @@
-/* utils.js — BigInt math helpers, primality test, step log, shared pre-checks */
+/* utils.js — BigInt math helpers, primality test, step log */
 (function () {
     'use strict';
     const F = (window.Fact = window.Fact || {});
@@ -24,7 +24,6 @@
         return result;
     }
 
-    // inverse of a modulo m (assumes gcd(a, m) = 1)
     function modInv(a, m) {
         let r0 = mod(a, m), r1 = m, s0 = 1n, s1 = 0n;
         while (r1) {
@@ -45,9 +44,29 @@
         }
     }
 
+    // floor of the k-th root
+    function iroot(m, k) {
+        if (k === 1) return m;
+        const K = BigInt(k);
+        let lo = 1n, hi = 1n << BigInt(Math.ceil(bitLen(m) / k) + 1);
+        while (lo < hi) {
+            const mid = (lo + hi + 1n) >> 1n;
+            if (mid ** K <= m) lo = mid; else hi = mid - 1n;
+        }
+        return lo;
+    }
+
+    // m = r^k with the largest possible k ≥ 2, or null
+    function perfectPower(m) {
+        for (let k = bitLen(m); k >= 2; k--) {
+            const r = iroot(m, k);
+            if (r > 1n && r ** BigInt(k) === m) return { r, k };
+        }
+        return null;
+    }
+
     const SMALL = [2n, 3n, 5n, 7n, 11n, 13n, 17n, 19n, 23n, 29n, 31n, 37n, 41n];
 
-    // Miller–Rabin with the first 13 prime bases (deterministic below 3.3·10^24, very reliable above)
     function isProbablePrime(n) {
         if (n < 2n) return false;
         for (const p of SMALL) {
@@ -109,15 +128,24 @@
         while (!isProbablePrime(n)) n += 2n;
         return n;
     }
+    // distinct random primes
+    function randPrimes(count, bits) {
+        const out = [];
+        while (out.length < count) {
+            const p = randPrime(bits);
+            if (!out.includes(p)) out.push(p);
+        }
+        return out;
+    }
 
     /* ---------- time limit ---------- */
     let deadline = Infinity;
     const startTimer = (ms) => { deadline = performance.now() + ms; };
     const timeUp = () => performance.now() > deadline;
 
-    /* ---------- step log (keeps first `head` iterations and last `tail`) ---------- */
+    /* ---------- step log ---------- */
     class StepLog {
-        constructor(head = 150, tail = 5) {
+        constructor(head = 100, tail = 4) {
             this.head = head; this.tail = tail;
             this.steps = []; this.count = 0; this.buf = [];
         }
@@ -139,7 +167,7 @@
         finish() { this.flush(); return this.steps; }
     }
 
-    /* ---------- helpers for Dixon ---------- */
+    /* ---------- Dixon helpers ---------- */
     function smoothFactor(r, fbBig) {
         const exps = new Array(fbBig.length).fill(0);
         for (let i = 0; i < fbBig.length; i++) {
@@ -155,45 +183,21 @@
         return parts.length ? parts.join(' · ') : '1';
     }
 
-    /* ---------- verification step (shared by all algorithms) ---------- */
-    function verify(log, n, d) {
-        const q = n / d;
-        const prod = d * q;
-        log.add({
-            kind: 'verify', key: 'verify', p: {},
-            lines: [`${d} × ${q} = ${prod}`, `${prod} ${prod === n ? '=' : '≠'} n   ${prod === n ? '✓' : '✗'}`]
-        });
-        log.add({ kind: 'verify', key: 'verify_prime', p: { x: d, s: isProbablePrime(d) ? '@prime' : '@composite' } });
-        log.add({ kind: 'verify', key: 'verify_prime', p: { x: q, s: isProbablePrime(q) ? '@prime' : '@composite' } });
-    }
-
-    /* ---------- common pre-checks: tiny, even, prime, perfect square ---------- */
-    function precheck(n, log) {
-        if (n < 4n) {
-            log.add({ kind: 'fail', key: 'pre_small', p: { n } });
-            return { done: true, factor: null };
-        }
-        if (n % 2n === 0n) {
-            log.add({ kind: 'success', key: 'pre_even', p: { n, q: n / 2n } });
-            verify(log, n, 2n);
-            return { done: true, factor: 2n };
-        }
-        if (isProbablePrime(n)) {
-            log.add({ kind: 'info', key: 'pre_prime', p: { n } });
-            return { done: true, factor: null, prime: true };
-        }
-        const r = isqrt(n);
-        if (r * r === n) {
-            log.add({ kind: 'success', key: 'pre_square', p: { r } });
-            verify(log, n, r);
-            return { done: true, factor: r };
-        }
-        return { done: false };
+    /* ---------- pretty factorization string:  2³ × 3² × 5 ---------- */
+    const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+    const sup = (e) => String(e).split('').map((c) => SUP[c]).join('');
+    function exprOf(factors) {
+        return factors
+            .map((f) => {
+                const base = f.prime ? `${f.v}` : `[${f.v}]`;
+                return f.e > 1 ? base + sup(f.e) : base;
+            })
+            .join(' × ');
     }
 
     F.utils = {
-        mod, abs, bitLen, gcd, modPow, modInv, isqrt, isProbablePrime, primesUpTo,
-        randBits, randBelow, randPrime, nextPrime, startTimer, timeUp,
-        StepLog, smoothFactor, factorString, verify, precheck
+        mod, abs, bitLen, gcd, modPow, modInv, isqrt, iroot, perfectPower, isProbablePrime,
+        primesUpTo, randBits, randBelow, randPrime, randPrimes, nextPrime,
+        startTimer, timeUp, StepLog, smoothFactor, factorString, exprOf
     };
 })();

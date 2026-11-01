@@ -1,9 +1,9 @@
-/* lenstra.js — Lenstra's elliptic-curve method (stage 1, affine Weierstrass coordinates) */
+/* lenstra.js — Lenstra's elliptic-curve method (stage 1): finds ONE factor of an odd composite number */
 (function () {
     'use strict';
     const F = window.Fact, U = F.utils;
 
-    // Point addition on y² = x³ + a·x + b (mod n). null = point at infinity.
+    // y² = x³ + a·x + b (mod n); null = point at infinity.
     // A failed inversion throws { ecFactor: gcd, den } — that gcd is our factor.
     function ecAdd(P, Q, a, n) {
         if (!P) return Q;
@@ -36,12 +36,8 @@
         return R;
     }
 
-    F.ecm = function (n, o) {
+    function split(n, o, log) {
         const B1 = Number(o.B1), maxC = Number(o.curves);
-        const log = new U.StepLog(150, 5);
-        const pre = U.precheck(n, log);
-        if (pre.done) return { steps: log.finish(), factor: pre.factor, prime: pre.prime };
-
         const primes = U.primesUpTo(B1);
         const L = BigInt(B1);
         const ks = primes.map((p) => {
@@ -50,11 +46,9 @@
             while (k * P <= L) k *= P;
             return k;
         });
-        log.add({ kind: 'info', key: 'e_start', p: { B1, count: primes.length } });
+        log.add({ kind: 'info', key: 'e_start', p: { n, B1, count: primes.length } });
 
-        const append = (list) => list.forEach((s) => log.add(s));
         let tried = 0, why = 'why_curves';
-
         for (let c = 1; c <= maxC; c++) {
             if (U.timeUp()) { why = 'why_time'; break; }
             tried = c;
@@ -102,25 +96,24 @@
 
             const list = cl.finish();
             if (found) {
-                append(list);
+                list.forEach((s) => log.add(s));
                 log.add({ kind: 'success', key: 'found', p: { d: found } });
-                U.verify(log, n, found);
-                return { steps: log.finish(), factor: found };
+                return found;
             }
-            // full log for curve 1, only the header for later failed curves
-            append(c === 1 ? list : [list[0]]);
+            // full log for the first curve, only the header for later failed curves
+            (c === 1 ? list : [list[0]]).forEach((s) => log.add(s));
             log.add({ kind: 'warn', key: 'e_curve_fail', p: { c, why: '@e_why_' + outcome } });
         }
 
         log.add({ kind: 'fail', key: 'e_limit', p: { c: tried, why: '@' + why } });
-        return { steps: log.finish(), factor: null };
-    };
+        return null;
+    }
 
-    // Suggest: two 32-bit primes, B1 = 1000 (usually needs 10–40 curves)
-    F.ecm.suggest = function () {
-        const p = U.randPrime(32);
-        let q;
-        do { q = U.randPrime(32); } while (q === p);
-        return { n: p * q, params: { B1: 1000, curves: 100 } };
-    };
+    // Suggest: three 28-bit primes
+    function suggest() {
+        const [p, q, r] = U.randPrimes(3, 28);
+        return { n: p * q * r, params: { B1: 1000, curves: 100 } };
+    }
+
+    F.ecm = { split, suggest };
 })();

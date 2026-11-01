@@ -1,17 +1,13 @@
-/* fermat.js — Fermat's factorization method */
+/* fermat.js — Fermat's method: finds ONE factor of an odd composite number */
 (function () {
     'use strict';
     const F = window.Fact, U = F.utils;
 
-    F.fermat = function (n, o) {
-        const log = new U.StepLog(150, 5);
-        const pre = U.precheck(n, log);
-        if (pre.done) return { steps: log.finish(), factor: pre.factor, prime: pre.prime };
-
+    function split(n, o, log) {
         let a = U.isqrt(n);
         if (a * a < n) a += 1n;
         log.add({
-            kind: 'info', key: 'f_start', p: { a },
+            kind: 'info', key: 'f_start', p: { n, a },
             lines: [`⌈√n⌉ = ${a}      (${a}² = ${a * a} ≥ n)`]
         });
 
@@ -27,8 +23,7 @@
                 });
                 const p = a - s, q = a + s;
                 log.add({ kind: 'success', key: 'f_factors', p: { p, q } });
-                if (p > 1n) U.verify(log, n, p);
-                return { steps: log.finish(), factor: p > 1n ? p : null };
+                return p > 1n && p < n ? p : null;
             }
             k++;
             log.iter({
@@ -42,15 +37,17 @@
             if ((k & 255) === 0 && U.timeUp()) { why = 'why_time'; break; }
         }
         log.add({ kind: 'fail', key: 'f_limit', p: { why: '@' + why } });
-        return { steps: log.finish(), factor: null };
-    };
+        return null;
+    }
 
-    // Suggest: two primes p < q with q − p ≈ √(8·p·k), which needs about k trials
-    F.fermat.suggest = function () {
+    // Suggest: two close primes (needs about 8–58 trials)
+    function suggest() {
         const p = U.randPrime(40);
         const k = BigInt(8 + Math.floor(Math.random() * 50));
         const gap = U.isqrt(8n * p * k);
         const q = U.nextPrime(p + gap);
         return { n: p * q, params: {} };
-    };
+    }
+
+    F.fermat = { split, suggest };
 })();
