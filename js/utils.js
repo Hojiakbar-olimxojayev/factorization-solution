@@ -128,7 +128,6 @@
         while (!isProbablePrime(n)) n += 2n;
         return n;
     }
-    // distinct random primes
     function randPrimes(count, bits) {
         const out = [];
         while (out.length < count) {
@@ -143,11 +142,12 @@
     const startTimer = (ms) => { deadline = performance.now() + ms; };
     const timeUp = () => performance.now() > deadline;
 
-    /* ---------- step log ---------- */
+    /* ---------- step log (also counts the real amount of work done) ---------- */
     class StepLog {
         constructor(head = 100, tail = 4) {
             this.head = head; this.tail = tail;
             this.steps = []; this.count = 0; this.buf = [];
+            this.work = 0;               // real iterations done by the algorithm (not shortened)
         }
         iter(step) {
             this.count++;

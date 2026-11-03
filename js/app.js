@@ -1,4 +1,4 @@
-/* app.js — UI: tabs, task / log views, stepper, theme, language */
+/* app.js — UI: tabs, task / log / compare views, stepper, theme, language */
 (function () {
     'use strict';
     const F = window.Fact, U = F.utils, I = F.i18n, t = I.t;
@@ -10,6 +10,13 @@
         if (text !== undefined) e.textContent = text;
         return e;
     };
+
+    // attach a listener only if the element exists (and tell us in the Console if not)
+    function on(sel, ev, fn) {
+        const el = $(sel);
+        if (el) el.addEventListener(ev, fn);
+        else console.warn('Missing element in index.html:', sel);
+    }
 
     /* ---------- algorithm configuration ---------- */
     const ALGOS = {
@@ -36,10 +43,19 @@
 
     const state = {
         algo: 'fermat', view: 'task',
-        steps: [], shown: 0, res: null,
-        timer: null, msg: null, curBody: null, lastEl: null
+        steps: [], shown: 0, res: null, logFrom: 'task',
+        timer: null, msg: null, curBody: null, lastEl: null,
+        cmp: null, cmpToken: 0
     };
     const cfg = () => ALGOS[state.algo];
+
+    /* ---------- number formatting ---------- */
+    const fmtInt = (x) => Number(x).toLocaleString('en-US');
+    function fmtMs(ms) {
+        if (ms < 1) return ms.toFixed(2);
+        if (ms < 100) return ms.toFixed(1);
+        return Math.round(ms).toLocaleString('en-US');
+    }
 
     /* ---------- i18n ---------- */
     function applyI18n() {
@@ -59,6 +75,7 @@
         renderAll();
         updateProgress();
         updateLogUi();
+        renderCompare();
     }
 
     /* ---------- messages ---------- */
@@ -97,11 +114,13 @@
     /* ---------- views ---------- */
     function showView(v) {
         if (v === 'log' && !state.steps.length) v = 'task';
+        if (v === 'compare' && !state.cmp) v = 'task';
         state.view = v;
         $('#taskView').hidden = v !== 'task';
         $('#logView').hidden = v !== 'log';
+        $('#compareView').hidden = v !== 'compare';
         $$('.view-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === v));
-        if (v === 'task') stopPlay();
+        if (v !== 'log') stopPlay();
         window.scrollTo({ top: 0, behavior: 'auto' });
         updateToTop();
     }
@@ -116,6 +135,8 @@
         $('#logSummary').textContent = state.res
             ? t('log_for', { algo: t('tab_' + state.res.algo), n: state.res.n })
             : '';
+        $('#backBtn').textContent = t(state.logFrom === 'compare' ? 'back_compare' : 'back_task');
+        $('#viewCmp').disabled = !state.cmp;
     }
 
     /* ---------- fields ---------- */
@@ -179,7 +200,7 @@
             digits: String(r.n).length, steps: state.steps.length, ms: r.ms, algo: t('tab_' + r.algo)
         })));
         const open = h('button', 'btn primary', t('res_open_log'));
-        open.addEventListener('click', () => showView('log'));
+        open.addEventListener('click', () => { state.logFrom = 'task'; updateLogUi(); showView('log'); });
         box.appendChild(open);
     }
 
@@ -242,9 +263,6 @@
         state.curBody = null;
         state.lastEl = null;
         if (!state.steps.length) { box.appendChild(h('div', 'empty', t('empty'))); return; }
-        const frag = document.createDocumentFragment();
-        const holder = box; // addStep appends to #steps / group bodies directly
-        void frag; void holder;
         for (let i = 0; i < state.shown; i++) state.lastEl = addStep(i);
         markCurrent();
     }
@@ -300,17 +318,211 @@
 
     function resetViz() {
         stopPlay();
-        state.steps = []; state.shown = 0; state.res = null;
+        state.steps = []; state.shown = 0; state.res = null; state.logFrom = 'task';
         renderResult(); renderAll(); updateProgress(); updateLogUi();
     }
 
+    /* ---------- comparison page ---------- */
+    function statusOf(row) {
+        if (row.status === 'pending') return { k: 'st_pending', cls: '' };
+        if (row.status === 'running') return { k: 'st_running', cls: 'run' };
+        if (row.status === 'error') return { k: 'st_error', cls: 'bad' };
+        if (row.out.complete) return { k: 'st_ok', cls: 'ok' };
+        if (row.timeout) return { k: 'st_timeout', cls: 'warn' };
+        return { k: 'st_partial', cls: 'bad' };
+    }
+
+    function paramText(row) {
+        const p = row.params;
+        const map = {
+            fermat: {},
+            dixon: { B: p.B },
+            pollard: { c: p.c, x0: p.x0 },
+            ecm: { B1: p.B1, curves: p.curves }
+        };
+        return t('cmp_p_' + row.id, map[row.id]);
+    }
+
+    function barCell(value, max, text, mark, label) {
+        const td = h('td', 'num');
+        if (label) td.dataset.label = label;
+        td.appendChild(h('div', 'num-text', text + (mark ? ' ' + mark : '')));
+        const bar = h('div', 'bar');
+        const span = h('span');
+        span.style.width = Math.max(2, (value / max) * 100) + '%';
+        bar.appendChild(span);
+        td.appendChild(bar);
+        return td;
+    }
+
+    // table cell that also carries a label (shown on phones, where the table becomes cards)
+    function cell(cls, text, label) {
+        const td = h('td', cls, text);
+        if (label) td.dataset.label = label;
+        return td;
+    }
+
+    function renderCompare() {
+        const c = state.cmp;
+        const table = $('#cmpTable'), sum = $('#cmpSummary');
+        table.innerHTML = '';
+        sum.innerHTML = '';
+        if (!c) { $('#cmpSub').textContent = ''; return; }
+
+        $('#cmpSub').textContent = t('cmp_sub', {
+            n: c.n, digits: String(c.n).length, sec: F.compare.LIMIT_MS / 1000
+        });
+        $('#cmpRerun').disabled = !!c.running || !!c.prime;
+
+        if (c.prime) { sum.appendChild(h('div', 'expr', t('res_prime', { n: c.n }))); return; }
+
+        const done = c.rows.filter((r) => r.status === 'done');
+        const solved = done.filter((r) => r.out.complete);
+        const maxMs = Math.max(0.0001, ...done.map((r) => r.ms));
+        const maxWork = Math.max(1, ...done.map((r) => r.out.work));
+        const fastest = solved.length ? solved.reduce((a, b) => (b.ms < a.ms ? b : a)) : null;
+        const fewest = solved.length ? solved.reduce((a, b) => (b.out.work < a.out.work ? b : a)) : null;
+
+        const L = {
+            params: t('cmp_col_params'), result: t('cmp_col_result'),
+            iter: t('cmp_col_iter'), splits: t('cmp_col_splits'), time: t('cmp_col_time')
+        };
+
+        // header (hidden on phones)
+        const thead = h('thead');
+        const trh = h('tr');
+        ['cmp_col_algo', 'cmp_col_params', 'cmp_col_result', 'cmp_col_status',
+            'cmp_col_iter', 'cmp_col_splits', 'cmp_col_time', 'cmp_col_log']
+            .forEach((k) => trh.appendChild(h('th', '', t(k))));
+        thead.appendChild(trh);
+        table.appendChild(thead);
+
+        // rows
+        const tbody = h('tbody');
+        c.rows.forEach((row) => {
+            const tr = h('tr');
+            if (row === fastest) tr.className = 'best-row';
+
+            // 1) algorithm
+            const tdAlgo = h('td', 'algo', t('tab_' + row.id));
+            tdAlgo.appendChild(h('span', 'unit', t('unit_' + row.id)));
+            tr.appendChild(tdAlgo);
+
+            // 2) parameters
+            tr.appendChild(cell('mono', paramText(row), L.params));
+
+            // 3) result
+            let resText = '—';
+            if (row.status === 'done') resText = U.exprOf(row.out.factors);
+            else if (row.status === 'running') resText = '⏳';
+            else if (row.status === 'error') resText = row.error;
+            tr.appendChild(cell('result', resText, L.result));
+
+            // 4) status
+            const st = statusOf(row);
+            const tdSt = h('td');
+            tdSt.appendChild(h('span', 'st ' + st.cls, t(st.k)));
+            tr.appendChild(tdSt);
+
+            if (row.status === 'done') {
+                // 5) iterations  6) splits  7) time  8) log
+                tr.appendChild(barCell(row.out.work, maxWork, fmtInt(row.out.work), row === fewest ? '★' : '', L.iter));
+                tr.appendChild(cell('mono', fmtInt(row.out.splits), L.splits));
+                tr.appendChild(barCell(row.ms, maxMs, fmtMs(row.ms), row === fastest ? '🏆' : '', L.time));
+                const tdLog = h('td');
+                const b = h('button', 'btn small', t('cmp_open'));
+                b.addEventListener('click', () => openRowLog(row));
+                tdLog.appendChild(b);
+                tr.appendChild(tdLog);
+            } else {
+                tr.appendChild(cell('mono', '—', L.iter));
+                tr.appendChild(cell('mono', '—', L.splits));
+                tr.appendChild(cell('mono', '—', L.time));
+                tr.appendChild(h('td'));
+            }
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+
+        // summary (after all rows are finished)
+        if (!c.running) {
+            if (fastest) {
+                sum.appendChild(h('div', 'cmp-sum-item', t('cmp_fastest', { algo: t('tab_' + fastest.id), ms: fmtMs(fastest.ms) })));
+                sum.appendChild(h('div', 'cmp-sum-item', t('cmp_fewest', { algo: t('tab_' + fewest.id), n: fmtInt(fewest.out.work) })));
+            } else {
+                sum.appendChild(h('div', 'cmp-sum-item', t('cmp_none', { sec: F.compare.LIMIT_MS / 1000 })));
+            }
+        }
+    }
+
+    // open the step log of one compared algorithm
+    function openRowLog(row) {
+        if (!row.out) return;
+        stopPlay();
+        state.steps = row.out.steps;
+        state.shown = Math.min(1, state.steps.length);
+        state.res = {
+            n: state.cmp.n, algo: row.id, factors: row.out.factors, complete: row.out.complete,
+            prime: row.out.prime, ms: Math.round(row.ms)
+        };
+        state.logFrom = 'compare';
+        renderResult(); renderAll(); updateProgress(); updateLogUi();
+        showView('log');
+    }
+
+    function setCompareBusy(busy) { $('#compareBtn').disabled = busy; }
+
+    async function runCompare(n) {
+        stopPlay();
+        const token = ++state.cmpToken;
+        state.cmp = { n, prime: false, rows: [], token, running: true };
+        setCompareBusy(true);
+        updateLogUi();
+        showView('compare');
+        renderCompare();
+
+        await F.compare.compareAll(
+            n,
+            (rows) => {
+                if (state.cmp && state.cmp.token === token) { state.cmp.rows = rows; renderCompare(); }
+            },
+            () => !state.cmp || state.cmp.token !== token
+        );
+
+        if (state.cmp && state.cmp.token === token) {
+            state.cmp.running = false;
+            setCompareBusy(false);
+            renderCompare();
+        }
+    }
+
+    function onCompare() {
+        const n = readN();
+        if (n === null) return;
+        setMsg(null);
+        if (U.isProbablePrime(n)) {
+            state.cmpToken++;
+            state.cmp = { n, prime: true, rows: [], token: state.cmpToken, running: false };
+            updateLogUi();
+            showView('compare');
+            renderCompare();
+            return;
+        }
+        runCompare(n);
+    }
+
     /* ---------- run / suggest / clear ---------- */
+    function readN() {
+        const nStr = $('#nInput').value.trim().replace(/[\s_,']/g, '');
+        if (!/^\d+$/.test(nStr) || BigInt(nStr) < 2n) { setMsg('err_n'); return null; }
+        if (nStr.length > 80) { setMsg('err_big'); return null; }
+        return BigInt(nStr);
+    }
+
     function onRun() {
         stopPlay();
-        const nStr = $('#nInput').value.trim().replace(/[\s_,']/g, '');
-        if (!/^\d+$/.test(nStr) || BigInt(nStr) < 2n) return setMsg('err_n');
-        if (nStr.length > 80) return setMsg('err_big');
-        const n = BigInt(nStr);
+        const n = readN();
+        if (n === null) return;
 
         const o = {};
         for (const f of cfg().fields) {
@@ -335,6 +547,7 @@
                 };
                 state.steps = out.steps;
                 state.shown = Math.min(1, out.steps.length);
+                state.logFrom = 'task';
                 setMsg(null);
             } catch (e) {
                 console.error(e);
@@ -363,6 +576,9 @@
     function onClear() {
         $('#nInput').value = '';
         buildFields();
+        state.cmpToken++;
+        state.cmp = null;
+        setCompareBusy(false);
         resetViz();
         setMsg(null);
         showView('task');
@@ -374,26 +590,29 @@
         $$('.tab').forEach((b) => b.addEventListener('click', () => selectAlgo(b.dataset.algo)));
         $$('[data-lang]').forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang)));
         $$('.view-btn').forEach((b) => b.addEventListener('click', () => showView(b.dataset.view)));
-        $('#themeBtn').addEventListener('click', () => {
+        on('#themeBtn', 'click', () => {
             setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
         });
-        $('#runBtn').addEventListener('click', onRun);
-        $('#suggestBtn').addEventListener('click', onSuggest);
-        $('#clearBtn').addEventListener('click', onClear);
-        $('#backBtn').addEventListener('click', () => showView('task'));
-        $('#prevBtn').addEventListener('click', () => { stopPlay(); prev(); });
-        $('#nextBtn').addEventListener('click', () => { stopPlay(); next(); });
-        $('#playBtn').addEventListener('click', play);
-        $('#allBtn').addEventListener('click', showAll);
-        $('#restartBtn').addEventListener('click', restart);
-        $('#collapseBtn').addEventListener('click', () => $$('#steps details').forEach((d) => { d.open = false; }));
-        $('#expandBtn').addEventListener('click', () => $$('#steps details').forEach((d) => { d.open = true; }));
-        $('#speed').addEventListener('change', () => {
+        on('#runBtn', 'click', onRun);
+        on('#compareBtn', 'click', onCompare);
+        on('#suggestBtn', 'click', onSuggest);
+        on('#clearBtn', 'click', onClear);
+        on('#backBtn', 'click', () => showView(state.logFrom === 'compare' ? 'compare' : 'task'));
+        on('#cmpBack', 'click', () => showView('task'));
+        on('#cmpRerun', 'click', () => { if (state.cmp && !state.cmp.running) runCompare(state.cmp.n); });
+        on('#prevBtn', 'click', () => { stopPlay(); prev(); });
+        on('#nextBtn', 'click', () => { stopPlay(); next(); });
+        on('#playBtn', 'click', play);
+        on('#allBtn', 'click', showAll);
+        on('#restartBtn', 'click', restart);
+        on('#collapseBtn', 'click', () => $$('#steps details').forEach((d) => { d.open = false; }));
+        on('#expandBtn', 'click', () => $$('#steps details').forEach((d) => { d.open = true; }));
+        on('#speed', 'change', () => {
             if (state.timer) { clearInterval(state.timer); state.timer = setInterval(next, Number($('#speed').value)); }
         });
-        $('#toTop').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+        on('#toTop', 'click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
         window.addEventListener('scroll', updateToTop, { passive: true });
-        $('#nInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') onRun(); });
+        on('#nInput', 'keydown', (e) => { if (e.key === 'Enter') onRun(); });
 
         initTheme();
         buildFields();

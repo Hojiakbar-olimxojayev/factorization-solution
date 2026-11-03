@@ -9,7 +9,7 @@
 
     <meta
       name="description"
-      content="Interactive step-by-step visualisation of integer factorization algorithms: Fermat, Dixon, Pollard ρ and Lenstra ECM. Complete prime factorization, 30+ digit numbers, EN/UZ languages and dark mode."
+      content="Interactive step-by-step visualisation of integer factorization algorithms: Fermat, Dixon, Pollard ρ and Lenstra ECM. Complete prime factorization, algorithm comparison, 30+ digit numbers, EN/UZ languages and dark mode."
     />
     <meta
       name="keywords"
@@ -43,7 +43,7 @@
     />
     <meta
       property="og:description"
-      content="Watch Fermat, Dixon, Pollard ρ and Lenstra ECM factor big integers into primes, one step at a time. EN / UZ, dark mode, BigInt."
+      content="Watch Fermat, Dixon, Pollard ρ and Lenstra ECM factor big integers into primes, one step at a time, and compare them on the same input."
     />
     <meta
       property="og:url"
@@ -65,7 +65,7 @@
     />
     <meta
       name="twitter:description"
-      content="Fermat, Dixon, Pollard ρ and Lenstra ECM with step-by-step verification."
+      content="Fermat, Dixon, Pollard ρ and Lenstra ECM with step-by-step verification and a comparison table."
     />
     <meta
       name="twitter:image"
@@ -86,7 +86,7 @@
       }
     </script>
 
-    <link rel="stylesheet" href="css/style.css?v=4" />
+    <link rel="stylesheet" href="css/style.css?v=5" />
   </head>
   <body>
     <header class="topbar">
@@ -135,6 +135,13 @@
           <span data-i18n="view_log"></span
           ><span id="logBadge" class="badge" hidden></span>
         </button>
+        <button
+          id="viewCmp"
+          class="view-btn"
+          data-view="compare"
+          data-i18n="view_compare"
+          disabled
+        ></button>
       </div>
 
       <!-- ================= TASK VIEW ================= -->
@@ -169,6 +176,11 @@
               class="btn primary"
               data-i18n="btn_run"
             ></button>
+            <button
+              id="compareBtn"
+              class="btn"
+              data-i18n="btn_compare"
+            ></button>
             <button id="clearBtn" class="btn" data-i18n="btn_clear"></button>
           </div>
           <div id="msg" class="msg" role="alert"></div>
@@ -181,7 +193,7 @@
       <section id="logView" hidden>
         <div class="stickbar">
           <div class="bar-top">
-            <button id="backBtn" class="btn" data-i18n="back_task"></button>
+            <button id="backBtn" class="btn"></button>
             <div id="logSummary" class="log-summary"></div>
           </div>
           <div class="controls">
@@ -220,19 +232,47 @@
 
         <div id="steps" class="steps"></div>
       </section>
+
+      <!-- ================= COMPARE VIEW ================= -->
+      <section id="compareView" hidden>
+        <div class="card">
+          <div class="cmp-head">
+            <div>
+              <h2 data-i18n="cmp_title"></h2>
+              <p id="cmpSub" class="desc"></p>
+            </div>
+            <div class="cmp-actions">
+              <button id="cmpBack" class="btn" data-i18n="back_task"></button>
+              <button
+                id="cmpRerun"
+                class="btn primary"
+                data-i18n="cmp_rerun"
+              ></button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table id="cmpTable" class="cmp-table"></table>
+          </div>
+
+          <div id="cmpSummary" class="cmp-summary"></div>
+          <p class="note-soft" data-i18n="cmp_note"></p>
+        </div>
+      </section>
     </main>
 
     <button id="toTop" class="to-top" data-i18n-title="to_top" hidden>↑</button>
 
     <footer class="footer" data-i18n="footer"></footer>
 
-    <script src="js/utils.js?v=4"></script>
-    <script src="js/i18n.js?v=4"></script>
-    <script src="js/fermat.js?v=4"></script>
-    <script src="js/dixon.js?v=4"></script>
-    <script src="js/pollard.js?v=4"></script>
-    <script src="js/lenstra.js?v=4"></script>
-    <script src="js/engine.js?v=4"></script>
-    <script src="js/app.js?v=4"></script>
+    <script src="js/utils.js?v=5"></script>
+    <script src="js/i18n.js?v=5"></script>
+    <script src="js/fermat.js?v=5"></script>
+    <script src="js/dixon.js?v=5"></script>
+    <script src="js/pollard.js?v=5"></script>
+    <script src="js/lenstra.js?v=5"></script>
+    <script src="js/engine.js?v=5"></script>
+    <script src="js/compare.js?v=5"></script>
+    <script src="js/app.js?v=5"></script>
   </body>
 </html>

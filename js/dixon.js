@@ -45,6 +45,7 @@
                 if (tries >= MAX_TRIES) break;
                 if (tries && (tries & 1023) === 0 && U.timeUp()) { why = 'why_time'; break; }
                 tries++;
+                log.work++;                                 // one candidate x tested
 
                 const g = U.gcd(x, n);
                 if (g > 1n && g < n) {

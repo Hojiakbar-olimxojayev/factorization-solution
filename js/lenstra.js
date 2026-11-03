@@ -73,6 +73,7 @@
                 try {
                     for (let i = 0; i < primes.length; i++) {
                         curP = primes[i]; curK = ks[i];
+                        log.work++;                             // one point multiplication k·P
                         P = ecMul(curK, P, a, n);
                         cl.iter({
                             kind: 'iter', key: 'e_iter', p: { p: curP, k: curK },

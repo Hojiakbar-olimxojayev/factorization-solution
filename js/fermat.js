@@ -14,6 +14,7 @@
         const MAX = 3000000;
         let k = 0, why = 'why_iters';
         while (k < MAX) {
+            log.work++;                                   // one trial of a
             const b2 = a * a - n;
             const s = U.isqrt(b2);
             if (s * s === b2) {

@@ -17,7 +17,9 @@
 
     F.factorize = function (n, algo, o) {
         const log = new U.StepLog(100, 4);
+        let splits = 0;
         const status = (x) => ({ key: U.isProbablePrime(x) ? 'g_part_prime' : 'g_part_comp', p: { x } });
+        const result = (extra) => Object.assign({ steps: log.finish(), work: log.work, splits }, extra);
 
         // m is any positive number: primes are collected, composites are factored further
         function handle(m, depth, out) {
@@ -62,6 +64,7 @@
                 out.push({ v: m, prime: false });
                 return;
             }
+            splits++;
             const q = m / d;
             const a = d < q ? d : q;
             const b = d < q ? q : d;
@@ -75,11 +78,11 @@
 
         if (n < 2n) {
             log.add({ kind: 'fail', key: 'pre_small', p: { n } });
-            return { steps: log.finish(), factors: [], complete: false, prime: false, n };
+            return result({ factors: [], complete: false, prime: false, n });
         }
         if (U.isProbablePrime(n)) {
             log.add({ kind: 'info', key: 'pre_prime', p: { n } });
-            return { steps: log.finish(), factors: [{ v: n, e: 1, prime: true }], complete: true, prime: true, n };
+            return result({ factors: [{ v: n, e: 1, prime: true }], complete: true, prime: true, n });
         }
 
         const parts = [];
@@ -111,6 +114,6 @@
             }))
         });
 
-        return { steps: log.finish(), factors, complete, prime: false, n };
+        return result({ factors, complete, prime: false, n });
     };
 })();

@@ -22,6 +22,7 @@
                 if (i >= MAX) break;
                 if (i && (i & 255) === 0 && U.timeUp()) { timeout = true; break; }
                 i++;
+                log.work++;                                 // one ρ round
                 x = f(x);
                 y = f(f(y));
                 const diff = x > y ? x - y : y - x;
